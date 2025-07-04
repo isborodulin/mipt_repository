@@ -144,9 +144,9 @@ def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_na
     font = {'family': 'times', 'size': 14}
     plt.rc('font', **font)
 
-    fig, ax = plt.subplots(figsize=(10, 8), dpi=250)
+    fig, ax = plt.subplots(figsize=(11, 8), dpi=250)
     plt.minorticks_on()
-    fig.suptitle("Кривые заряда и разряда при постоянных токах")
+    fig.suptitle("Кривые заряда и разряда при постоянных токах", y=0.98)
 
     # Create a dictionary to store all handles and labels
     all_handles = []
@@ -191,7 +191,15 @@ def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_na
                                  linestyle=styling_dict[col])
 
     # Create a single legend with all entries
-    ax.legend(handles=all_handles, labels=all_labels, loc='upper right')
+    ax.legend(
+        handles=all_handles,
+        labels=all_labels,
+        loc='upper left',
+        bbox_to_anchor=(1.02, 1),  # Places legend outside right
+        borderaxespad=0.0  # Padding between plot and legend
+    )
+
+    plt.tight_layout(rect=[0, 0, 0.85, 0.95])
 
     # Axis labels
     if density_plot and columns_to_plot['x'] == "Capacity(mAh)":
@@ -214,8 +222,8 @@ def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_na
 
 
 def plot_discharge_capacity_per_cycle(df_counted_dict, active_material_mass, theoretical_capacity, input_file_name, folder_name):
-    fig, ax = plt.subplots(figsize=(10, 8), dpi=250)
-    fig.suptitle("Максимальная емкость каждого цикла разрядки, мАч")
+    fig, ax = plt.subplots(figsize=(13, 8), dpi=250)
+    fig.suptitle("Максимальная емкость каждого цикла разрядки, мАч", y=0.98)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     font = {'family': 'times', 'size': 14}
     plt.rc('font', **font)
@@ -250,7 +258,12 @@ def plot_discharge_capacity_per_cycle(df_counted_dict, active_material_mass, the
     plt.ylim(0, max_capacity * 1.5)
     plt.xlabel("Номер цикла")
 
-    plt.legend(loc="upper right")
+    plt.legend(
+        loc='upper left',
+        bbox_to_anchor=(1.02, 1),  # Outside right
+        borderaxespad=0.0
+    )
+    plt.tight_layout(rect=[0, 0, 0.85, 0.95])
 
     filename = ""
     for col in list(df_counted_dict.keys()):
