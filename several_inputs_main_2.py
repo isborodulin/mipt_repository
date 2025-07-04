@@ -262,11 +262,11 @@ def plot_discharge_capacity_per_cycle(df_counted_dict, active_material_mass, the
 
     return 0
 
-def cut_five_letters_from_a_string(string):
-    if len(string)<=5:
+def cut_N_letters_from_a_string(string, N):
+    if len(string)<=N:
         return string
     else:
-        return string[:5]
+        return string[:N]
 
 def create_folder_name_based_on_input_filenames(input_filename_dict):
     output_name = ""
@@ -403,7 +403,7 @@ class LabReportApp:
             #filename = os.path.basename(file_path)
             filename = file_path
             self.input_file_names[column].set(filename)
-            self.display_file_names[column].set(os.path.basename(file_path))
+            self.display_file_names[column].set(cut_N_letters_from_a_string(os.path.basename(file_path), 15))
             setattr(self, f'full_file_path_{column}', os.path.basename(file_path))
 
     def create_run_button(self):
@@ -465,7 +465,7 @@ class LabReportApp:
                     df = pd.read_excel(input_file_name[col], sheet_name="record")
                     df['DataPoint'] = df['DataPoint'].apply(lambda x: int(x))
 
-                    input_file_name[col] = col + "_" +cut_five_letters_from_a_string(os.path.basename(input_file_name[col]))
+                    input_file_name[col] = col + "_" +cut_N_letters_from_a_string(os.path.basename(input_file_name[col]), 5)
 
                     # Определение циклов
                     df_counted = link_count_cycle_numbers(df)
