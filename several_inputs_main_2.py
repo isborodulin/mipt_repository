@@ -116,8 +116,32 @@ def generate_color_gradient(numbers):
 
     return color_dict
 
+def generate_transparency_gradient(numbers):
+    """
+    Generate a dictionary mapping integers to transparency values alpha from 0.3 to 1
+    Args:
+        numbers: List of positive integers > 1
+    Returns:
+        Dictionary with integers as keys and floats from 0.3 to 1 as values
+    """
+    if not numbers:
+        return {}
+    numbers = np.array(numbers)
+    min_val, max_val = np.min(numbers), np.max(numbers)
+    # Normalize the numbers to [0.3, 1] range
+    if min_val == max_val:
+        normalized = [1.0 for i in range(len(numbers))]
+    else:
+        normalized = 0.7 * (numbers - min_val) / (max_val - min_val) + 0.3
+    transparency_dict = dict()
+    for num, norm in zip(numbers, normalized):
+        transparency_dict[int(num)] = norm
+    return transparency_dict
 
-def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_name, folder_name, density_plot=False,
+
+
+
+def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_name, input_file_info, folder_name, density_plot=False,
                                  active_material_mass=1):
     max_cycle = 0
     min_cycle = 1000
@@ -133,12 +157,13 @@ def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_na
     max_list_of_cycles = range(min_cycle, max_cycle+1)
 
     color_gradient = generate_color_gradient(max_list_of_cycles)
+    transparency_gradient = generate_transparency_gradient(max_list_of_cycles)
     styling_dict = {
-        "A": '-',
-        "B": '--',
-        "C": ':',
-        "D": '-.',
-        "E": '-'
+        "A": {'linestyle':'-', 'marker':'', 'markevery':None, 'color':"#1f77b4"},
+        "B": {'linestyle':'--', 'marker':'', 'markevery':None, 'color':"#ff7f0e"},
+        "C": {'linestyle':':', 'marker':'', 'markevery':None, 'color':"#2ca02c"},
+        "D": {'linestyle':'-.', 'marker':'', 'markevery':None, 'color':"#d62728"},
+        "E": {'linestyle':'', 'marker':'>', 'markevery':10, 'color':"#bcbd22"},
     }
 
     font = {'family': 'times', 'size': 14}
@@ -148,12 +173,6 @@ def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_na
     plt.minorticks_on()
     fig.suptitle("Кривые заряда и разряда при постоянных токах", y=0.98)
 
-    # Create a dictionary to store all handles and labels
-    all_handles = []
-    all_labels = []
-
-    # Create a dictionary to store legend titles and their handles
-    legend_info = {}
 
     for col in list(df_counted_dict.keys()):
         if input_file_name[col]:
@@ -179,36 +198,37 @@ def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_na
                     if step_type == 'CC DChg':
                         line, = plt.plot(dict_preprocessing[step_type][cycle_number]['x'],
                                          dict_preprocessing[step_type][cycle_number]['y'],
-                                         label=f"{input_file_name[col]}: {cycle_number}",
-                                         color=color_gradient[cycle_number],
-                                         linestyle=styling_dict[col])
-                        all_handles.append(line)
-                        all_labels.append(f"{input_file_name[col]}: {cycle_number}")
+                                         color=styling_dict[col]["color"],
+                                         alpha=transparency_gradient[cycle_number],
+                                         linestyle="-"
+                                         )
                     else:
                         plt.plot(dict_preprocessing[step_type][cycle_number]['x'],
                                  dict_preprocessing[step_type][cycle_number]['y'],
-                                 color=color_gradient[cycle_number],
-                                 linestyle=styling_dict[col])
+                                 color=styling_dict[col]["color"],
+                                 alpha=transparency_gradient[cycle_number],
+                                 linestyle="-"
+                                 )
 
-    # Create a single legend with all entries
-    ax.legend(
-        handles=all_handles,
-        labels=all_labels,
-        loc='upper left',
-        bbox_to_anchor=(1.02, 1),  # Places legend outside right
-        borderaxespad=0.0  # Padding between plot and legend
-    )
+    for col in list(df_counted_dict.keys()):
+        if input_file_name[col]:
+            plt.plot([], [],
+                     color=styling_dict[col]["color"],
+                     label=input_file_info[col],
+                     linestyle="-"
+                     )
 
-    plt.tight_layout(rect=[0, 0, 0.85, 0.95])
+    plt.legend(title='Эксперименты',
+               loc='lower right')
 
     # Axis labels
     if density_plot and columns_to_plot['x'] == "Capacity(mAh)":
-        plt.xlabel("Удельная емкость, мАч/г")
+        plt.xlabel("Удельная емкость, мАч/г", fontsize=18)
     elif columns_to_plot['x'] == "Capacity(mAh)":
-        plt.xlabel("Емкость, мАч")
+        plt.xlabel("Емкость, мАч", fontsize=18)
 
     if columns_to_plot['y'] == "Voltage(V)":
-        plt.ylabel("Напряжение, В")
+        plt.ylabel("Напряжение, В", fontsize=18)
 
     # Create filename
     filename = "_".join([input_file_name[col] for col in df_counted_dict.keys() if input_file_name[col]])
@@ -221,49 +241,51 @@ def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_na
     return 0
 
 
-def plot_discharge_capacity_per_cycle(df_counted_dict, active_material_mass, theoretical_capacity, input_file_name, folder_name):
+def plot_discharge_capacity_per_cycle(df_counted_dict, active_material_mass, theoretical_capacity, input_file_name, input_file_info, folder_name):
     fig, ax = plt.subplots(figsize=(13, 8), dpi=250)
     fig.suptitle("Максимальная емкость каждого цикла разрядки, мАч", y=0.98)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     font = {'family': 'times', 'size': 14}
     plt.rc('font', **font)
 
-    marker_dict = {
-        "A":'.',
-        "B":'v',
-        "C":'s',
-        "D":'*',
-        "E":'o'
+    styling_dict = {
+        "A": {'linestyle':'', 'marker':'.', 'markevery':None, 'color':"#1f77b4"},
+        "B": {'linestyle':'', 'marker':'v', 'markevery':None, 'color':"#ff7f0e"},
+        "C": {'linestyle':'', 'marker':'s', 'markevery':None, 'color':"#2ca02c"},
+        "D": {'linestyle':'', 'marker':'*', 'markevery':None, 'color':"#d62728"},
+        "E": {'linestyle':'', 'marker':'o', 'markevery':None, 'color':"#bcbd22"},
     }
+
+    theor_handle,  = ax.plot([], [],
+             color="gray",
+             label='Теоретические значения',
+             linestyle="--"
+             )
+    legend1 = ax.legend(handles=[theor_handle], loc = "upper right")
+    ax.add_artist(legend1)
+
     with pd.ExcelWriter(folder_name+"/"+"_max_capacities"+".xlsx") as writer:
         for col in list(df_counted_dict.keys()):
             if input_file_name[col]:
                 max_capacities_per_cycle = df_counted_dict[col][df_counted_dict[col]['Step Type'] == 'CC DChg'].groupby('CycleNumber')[
                     'Capacity(mAh)'].max().reset_index()
                 max_capacities_per_cycle.to_excel(writer, sheet_name=input_file_name[col])
-                plt.plot(list(max_capacities_per_cycle['CycleNumber']), list(max_capacities_per_cycle['Capacity(mAh)']),
-                         label='Экспериментальные значения ' + input_file_name[col], marker=marker_dict[col], color='#000000')
+                plt.plot(list(max_capacities_per_cycle['CycleNumber']), list(max_capacities_per_cycle['Capacity(mAh)']),linestyle=styling_dict[col]["linestyle"],
+                         label=input_file_info[col], marker=styling_dict[col]["marker"], color=styling_dict[col]["color"], ms=16)
 
-                plt.axhline(y=theoretical_capacity[col] * active_material_mass[col], linestyle='--', color='gray',
-                            label='Теоретические значения '+ input_file_name[col])
+                plt.axhline(y=theoretical_capacity[col] * active_material_mass[col], linestyle='--', color=styling_dict[col]["color"], alpha=0.8)
                 ax.text(ax.get_xlim()[1] + 0.1, theoretical_capacity[col] * active_material_mass[col],
                         f'{theoretical_capacity[col] * active_material_mass[col]:.2f}')
-    plt.ylabel("Емкость, мАч")
+    plt.ylabel("Емкость, мАч", fontsize=18)
+    legend2 = ax.legend(loc='upper right')
 
     max_capacity = 0
     for col in list(df_counted_dict.keys()):
         if theoretical_capacity[col] * active_material_mass[col] > max_capacity:
             max_capacity = theoretical_capacity[col] * active_material_mass[col]
 
-    plt.ylim(0, max_capacity * 1.5)
-    plt.xlabel("Номер цикла")
-
-    plt.legend(
-        loc='upper left',
-        bbox_to_anchor=(1.02, 1),  # Outside right
-        borderaxespad=0.0
-    )
-    plt.tight_layout(rect=[0, 0, 0.85, 0.95])
+    plt.ylim(0, max_capacity * 1.4)
+    plt.xlabel("Номер цикла", fontsize=18)
 
     filename = ""
     for col in list(df_counted_dict.keys()):
@@ -286,12 +308,7 @@ def create_folder_name_based_on_input_filenames(input_filename_dict):
     for col in list(input_filename_dict.keys()):
         if input_filename_dict[col]:
             output_name += (input_filename_dict[col] + "_")
-        return output_name + str(datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
-
-
-
-
-
+        return str(datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))+output_name
 
 
 class LabReportApp:
@@ -304,6 +321,7 @@ class LabReportApp:
         self.cycles_inputs = {col: tk.StringVar() for col in ['A', 'B', 'C', 'D', 'E']}
         self.active_material_masses = {col: tk.DoubleVar() for col in ['A', 'B', 'C', 'D', 'E']}
         self.theoretical_capacities = {col: tk.DoubleVar() for col in ['A', 'B', 'C', 'D', 'E']}
+        self.input_file_info = {col: tk.StringVar() for col in ['A', 'B', 'C', 'D', 'E']}
         self.input_file_names = {col: tk.StringVar() for col in ['A', 'B', 'C', 'D', 'E']}
         self.display_file_names = {col: tk.StringVar() for col in ['A', 'B', 'C', 'D', 'E']}
         self.is_running = False
@@ -369,12 +387,13 @@ class LabReportApp:
         self.create_table_row(table_frame, 1, "Выбранные циклы:", self.cycles_inputs)
         self.create_table_row(table_frame, 2, "Масса активного материала, г:", self.active_material_masses)
         self.create_table_row(table_frame, 3, "Теоретическая удельная емкость, мАч/г:", self.theoretical_capacities)
-        self.create_file_row(table_frame, 4, "Выбрать файл (.xlsx):")
+        self.create_table_row(table_frame, 4, "Описание файла (опционально)", self.input_file_info)
+        self.create_file_row(table_frame, 5, "Выбрать файл (.xlsx):")
 
         # Configure grid weights
         for i in range(5):
             table_frame.grid_columnconfigure(i+1, weight=1)
-        for i in range(4):
+        for i in range(5):
             table_frame.grid_rowconfigure(i+1, weight=1)
 
     def create_table_row(self, parent, row_num, label_text, variables_dict):
@@ -437,6 +456,7 @@ class LabReportApp:
         active_material_mass = {col: var.get() if var.get() != 0 else None for col, var in self.active_material_masses.items()}
         theoretical_capacity = {col: var.get() if var.get() != 0 else None for col, var in self.theoretical_capacities.items()}
         input_file_name = {col: var.get() or None for col, var in self.input_file_names.items()}
+        input_file_info = {col: var.get() or None for col, var in self.input_file_info.items()}
 
         # Change button to yellow (running)
         self.run_button.config(style="Yellow.TButton")
@@ -445,7 +465,7 @@ class LabReportApp:
 
         try:
             # Call the processing directly (no threading)
-            self.execute_script(cycles_input_string, active_material_mass, theoretical_capacity, input_file_name)
+            self.execute_script(cycles_input_string, active_material_mass, theoretical_capacity, input_file_name, input_file_info)
 
             # Change button to green (success)
             self.run_button.config(style="Green.TButton")
@@ -459,7 +479,7 @@ class LabReportApp:
             self.is_running = False
             self.root.update()  # Force UI update
 
-    def execute_script(self, cycles_input_string, active_material_mass, theoretical_capacity, input_file_name):
+    def execute_script(self, cycles_input_string, active_material_mass, theoretical_capacity, input_file_name, input_file_info):
         # This function remains untouched as requested
         try:
             # Here you would call your actual script
@@ -479,6 +499,8 @@ class LabReportApp:
                     df['DataPoint'] = df['DataPoint'].apply(lambda x: int(x))
 
                     input_file_name[col] = col + "_" +cut_N_letters_from_a_string(os.path.basename(input_file_name[col]), 5)
+                    if not input_file_info[col]:
+                        input_file_info[col] = input_file_name[col]
 
                     # Определение циклов
                     df_counted = link_count_cycle_numbers(df)
@@ -517,10 +539,10 @@ class LabReportApp:
                         pass
 
             # Отрисовка графиков
-            plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_name,folder_name, density_plot=False)
-            plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_name,folder_name, density_plot=True,
+            plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_name, input_file_info,folder_name, density_plot=False)
+            plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_name, input_file_info, folder_name, density_plot=True,
                                         active_material_mass=active_material_mass)
-            plot_discharge_capacity_per_cycle(df_counted_dict, active_material_mass, theoretical_capacity, input_file_name, folder_name)
+            plot_discharge_capacity_per_cycle(df_counted_dict, active_material_mass, theoretical_capacity, input_file_name, input_file_info, folder_name)
 
             # Change button to green (success)
             self.run_button.config(style="Green.TButton")
