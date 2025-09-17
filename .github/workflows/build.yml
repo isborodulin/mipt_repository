@@ -21,7 +21,7 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --windowed several_inputs_main_2.py
+          pyinstaller --onefile --windowed polarisation_resistance.py
           echo "=== BUILD OUTPUT ==="
           dir dist\
 
