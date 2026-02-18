@@ -223,7 +223,7 @@ def plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_na
 
     # Axis labels
     if density_plot and columns_to_plot['x'] == "Capacity(mAh)":
-        plt.xlabel("Удельная емкость, мАч/г", fontsize=18)
+        plt.xlabel(r"Удельная емкость, мАч $\cdot$ г$^{-1}$", fontsize=18)
     elif columns_to_plot['x'] == "Capacity(mAh)":
         plt.xlabel("Емкость, мАч", fontsize=18)
 
@@ -413,8 +413,13 @@ class LabReportApp:
 
         # File input fields (drag and drop)
         for col_idx, col in enumerate(['A', 'B', 'C', 'D', 'E']):
-            drop_frame = ttk.Frame(parent, style="Drop.TFrame", height=50)
-            drop_frame.grid(row=row_num, column=col_idx+1, padx=5, pady=5, sticky='nsew')
+            # Create a frame to hold both the drop frame and clear button
+            container_frame = ttk.Frame(parent)
+            container_frame.grid(row=row_num, column=col_idx + 1, padx=5, pady=5, sticky='nsew')
+
+            # Drop frame for file selection
+            drop_frame = ttk.Frame(container_frame, style="Drop.TFrame", height=40)
+            drop_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
             drop_label = ttk.Label(drop_frame, text=f"Файл {col}")
             drop_label.pack(expand=True)
@@ -423,8 +428,31 @@ class LabReportApp:
             drop_frame.bind("<Enter>", lambda e: drop_frame.config(style="Drop.TFrame"))
             drop_frame.bind("<Leave>", lambda e: drop_frame.config(style="Drop.TFrame"))
 
+            # File name label
             file_label = ttk.Label(drop_frame, textvariable=self.display_file_names[col])
             file_label.pack(fill=tk.X)
+
+            # Clear button (red X)
+            clear_button = ttk.Button(
+                container_frame,
+                text="✕",
+                style="Clear.TButton",
+                command=lambda c=col: self.clear_file(c),
+                width=2
+            )
+            clear_button.pack(side=tk.RIGHT, padx=(2, 0))
+
+    def clear_file(self, column):
+        """Clear the selected file for a given column"""
+        # Clear the file path variables
+        self.input_file_names[column].set("")
+        self.display_file_names[column].set("")
+        # Clear any stored full file path if it exists
+        if hasattr(self, f'full_file_path_{column}'):
+            delattr(self, f'full_file_path_{column}')
+
+        # Optional: Show a brief visual feedback
+        self.root.update()
 
     def browse_file(self, column):
         file_path = filedialog.askopenfilename(
@@ -524,7 +552,7 @@ class LabReportApp:
             print(f"Folder '{folder_name}' ensured to exist.")
 
             # Сохранение сырых табличных данных в таблицу
-
+            # Предыдущая реализация 
             with pd.ExcelWriter(folder_name + "/" + "raw_cycling_data" + ".xlsx") as writer:
                 for col in list(df_counted_dict.keys()):
                     if 'Current(mA)' in df_counted_dict[col].columns:
@@ -537,6 +565,68 @@ class LabReportApp:
                                                                                                                      col])
                     else:
                         pass
+            # Реализация с разбиением вывода в raw_cycling_data по циклам
+            with pd.ExcelWriter(folder_name + "/" + "raw_cycling_data_split_by_cycles" + ".xlsx") as writer:
+                for col in list(df_counted_dict.keys()):
+                    if col in input_file_name:
+                        df = df_counted_dict[col]
+
+                        # Determine which current column exists
+                        if 'Current(mA)' in df.columns:
+                            current_col = 'Current(mA)'
+                            columns_to_use = ['Step Type', 'CycleNumber', 'Voltage(V)', 'Capacity(mAh)', 'Current(mA)']
+                        elif 'Current(μA)' in df.columns:
+                            current_col = 'Current(μA)'
+                            columns_to_use = ['Step Type', 'CycleNumber', 'Voltage(V)', 'Capacity(mAh)', 'Current(μA)']
+                        else:
+                            continue
+
+                        # Select only the columns we need
+                        df_filtered = df[columns_to_use].copy()
+
+                        # Create a list to store all split dataframes
+                        all_dfs = []
+                        max_rows = 0
+
+                        # Get unique combinations preserving original order
+                        # Use drop_duplicates to maintain the first occurrence order
+                        combinations = df_filtered[['Step Type', 'CycleNumber']].drop_duplicates()
+
+                        # For each combination, extract the data
+                        for idx, (step_type, cycle_num) in combinations.iterrows():
+                            mask = (df_filtered['Step Type'] == step_type) & (df_filtered['CycleNumber'] == cycle_num)
+                            combo_df = df_filtered[mask].reset_index(drop=True)
+
+                            # Rename columns with simple index
+                            combo_df = combo_df.rename(columns={
+                                'Step Type': f'Step Type {idx + 1}',
+                                'CycleNumber': f'CycleNumber {idx + 1}',
+                                'Voltage(V)': f'Voltage(V) {idx + 1}',
+                                'Capacity(mAh)': f'Capacity(mAh) {idx + 1}',
+                                current_col: f'{current_col} {idx + 1}'
+                            })
+
+                            all_dfs.append(combo_df)
+                            max_rows = max(max_rows, len(combo_df))
+
+                        # Pad all dataframes to same length
+                        padded_dfs = []
+                        for combo_df in all_dfs:
+                            if len(combo_df) < max_rows:
+                                # Create empty rows
+                                empty_rows = pd.DataFrame('', index=range(max_rows - len(combo_df)),
+                                                          columns=combo_df.columns)
+                                padded_df = pd.concat([combo_df, empty_rows], ignore_index=True)
+                            else:
+                                padded_df = combo_df
+                            padded_dfs.append(padded_df)
+
+                        # Combine side by side
+                        if padded_dfs:
+                            final_df = pd.concat(padded_dfs, axis=1)
+                            final_df.to_excel(writer, sheet_name=input_file_name[col], index=False)
+
+
 
             # Отрисовка графиков
             plot_charge_discharge_curves(df_counted_dict, columns_to_plot, input_file_name, input_file_info,folder_name, density_plot=False)
