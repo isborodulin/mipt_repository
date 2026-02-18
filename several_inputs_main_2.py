@@ -574,10 +574,10 @@ class LabReportApp:
                         # Determine which current column exists
                         if 'Current(mA)' in df.columns:
                             current_col = 'Current(mA)'
-                            columns_to_use = ['Step Type', 'CycleNumber', 'Voltage(V)', 'Capacity(mAh)', 'Current(mA)']
+                            columns_to_use = ['Step Type', 'CycleNumber', 'Capacity(mAh)', 'Voltage(V)', 'Current(mA)']
                         elif 'Current(μA)' in df.columns:
                             current_col = 'Current(μA)'
-                            columns_to_use = ['Step Type', 'CycleNumber', 'Voltage(V)', 'Capacity(mAh)', 'Current(μA)']
+                            columns_to_use = ['Step Type', 'CycleNumber','Capacity(mAh)', 'Voltage(V)',  'Current(μA)']
                         else:
                             continue
 
